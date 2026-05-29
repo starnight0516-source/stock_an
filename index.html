@@ -1,19 +1,159 @@
-<!-- ... existing code ... -->
-                <!-- 富果 VIP 連線區塊 -->
-                <div class="w-full lg:w-auto bg-gray-900/80 p-4 rounded-xl border border-gray-700 flex flex-col justify-end shadow-inner min-w-[320px]">
-                <div class="text-sm font-bold text-blue-400 mb-3 flex items-center gap-2">
-                    <i class="ph-fill ph-rocket-launch"></i> Fugle 富果 VIP 直連通道
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>乾爹御用飆股戰情室</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #111827; }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #4B5563; }
+        
+        @keyframes priceFlashUp {
+            0% { background-color: rgba(239, 68, 68, 0.4); transform: scale(1.02); }
+            100% { background-color: transparent; transform: scale(1); }
+        }
+        @keyframes priceFlashDown {
+            0% { background-color: rgba(34, 197, 94, 0.4); transform: scale(1.02); }
+            100% { background-color: transparent; transform: scale(1); }
+        }
+        
+        .flash-up { animation: priceFlashUp 0.8s ease-out; border-radius: 4px; padding: 0 4px; }
+        .flash-down { animation: priceFlashDown 0.8s ease-out; border-radius: 4px; padding: 0 4px; }
+        
+        .hide-scroll::-webkit-scrollbar { display: none; }
+        .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen p-4 md:p-6">
+
+    <div class="max-w-7xl mx-auto">
+        <header class="mb-8 border-b border-gray-800 pb-6">
+            <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                <div>
+                    <h1 class="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-amber-600 flex items-center gap-2">
+                        <i class="ph-fill ph-lightning text-yellow-500 text-3xl"></i> 乾爹御用 V.I.P 飆股戰情室
+                    </h1>
+                    <p class="text-gray-400 mt-3 text-sm flex flex-wrap items-center gap-2">
+                        <span class="bg-blue-900/50 text-blue-300 px-2 py-1 rounded text-xs border border-blue-800 font-mono" id="time-display">系統時間讀取中...</span>
+                        <span>系統環境：<strong class="text-emerald-400">標準網站 (連線暢通)</strong></span>
+                    </p>
                 </div>
-                <button onclick="fetchRealData()" id="update-btn" class="bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-2.5 px-6 rounded-lg transition-colors border border-blue-500 flex items-center justify-center gap-2 w-full shadow-lg">
-                    <i class="ph-bold ph-arrows-clockwise" id="update-icon"></i> 獲取最新即時報價
-                </button>
-                <div class="text-[11px] text-gray-400 mt-3 flex items-center gap-1.5 bg-gray-950 p-2 rounded border border-gray-800">
-                    <span id="status-dot" class="w-2.5 h-2.5 bg-gray-500 rounded-full inline-block shadow-[0_0_5px_currentColor] shrink-0"></span>
-                    <span id="status-text" class="break-all">系統待命。點擊按鈕光速抓取。</span>
+                
+                <div class="w-full lg:w-auto bg-gray-900/80 p-4 rounded-xl border border-gray-700 flex flex-col justify-end shadow-inner min-w-[320px]">
+                    <div class="text-sm font-bold text-blue-400 mb-3 flex items-center gap-2">
+                        <i class="ph-fill ph-rocket-launch"></i> Fugle 富果 VIP 直連通道
+                    </div>
+                    <button onclick="fetchRealData()" id="update-btn" class="bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-2.5 px-6 rounded-lg transition-colors border border-blue-500 flex items-center justify-center gap-2 w-full shadow-lg">
+                        <i class="ph-bold ph-arrows-clockwise" id="update-icon"></i> 獲取最新即時報價
+                    </button>
+                    <div class="text-[11px] text-gray-400 mt-3 flex items-center gap-1.5 bg-gray-950 p-2 rounded border border-gray-800">
+                        <span id="status-dot" class="w-2.5 h-2.5 bg-gray-500 rounded-full inline-block shadow-[0_0_5px_currentColor] shrink-0"></span>
+                        <span id="status-text" class="break-all">系統待命。點擊按鈕光速抓取。</span>
+                    </div>
                 </div>
             </div>
-<!-- ... existing code ... -->
-        // 🚀 Fugle VIP 光速併發引擎 (1秒內抓取完畢，無CORS阻擋)
+        </header>
+
+        <div id="tabs-container" class="mb-6 flex gap-3 overflow-x-auto pb-2 scroll-smooth hide-scroll"></div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div class="lg:col-span-1 flex flex-col h-full">
+                <h2 class="text-xl font-bold mb-4 flex items-center gap-2 text-gray-200 shrink-0">
+                    <i class="ph-bold ph-trend-up text-blue-400 text-2xl"></i> 
+                    <span id="list-title">全部嚴選名單</span>
+                </h2>
+                <div id="stock-list" class="space-y-3 overflow-y-auto pr-1 pb-4 flex-grow" style="max-height: calc(100vh - 250px);"></div>
+            </div>
+            <div class="lg:col-span-2">
+                <div id="stock-detail" class="bg-gray-900 rounded-2xl border border-gray-800 shadow-xl relative overflow-hidden flex flex-col transition-all duration-300 min-h-[600px]"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const categories = [
+            { id: 'all', name: '全部嚴選', icon: 'ph-lightning' },
+            { id: 'hot', name: '強勢熱門', icon: 'ph-fire' },
+            { id: 'ai', name: 'AI與半導體', icon: 'ph-cpu' },
+            { id: 'green', name: '綠能與重電', icon: 'ph-sun' },
+            { id: 'turnaround', name: '轉機飆股', icon: 'ph-arrows-clockwise' },
+            { id: 'etf', name: '高股息ETF', icon: 'ph-chart-pie-slice' },
+        ];
+
+        // 股票代碼全部修正為純數字 (移除 .TW) 以符合 Fugle API 格式
+        let stocks = [
+            { id: '2330', categoryId: 'hot', name: '台積電', price: 2340.0, trend: 1.73, basePrice: 2300, type: '上市', tags: ['權王', '先進製程'], baseLevel: '極高', aiScore: 98, aiReason: '台股核心引擎，強者恆強。', metrics: { pe: '30.9倍', eps: '75.4元', yoy: '+28.4%', yield: '0.94%' }, buyAdvice: '2,300 - 2,330', targetAdvice: '2,500', stopLoss: '2,250', fundamentals: `世界的晶片命脈！AI晶片獨家代工，訂單滿載。`, technical: `【多頭無極限】股價沿五日線推升。`, chips: '【被動資金狂湧】全球ETF被動買盤推升。' },
+            { id: '2317', categoryId: 'hot', name: '鴻海', price: 267.5, trend: 1.32, basePrice: 264.0, type: '上市', tags: ['GB200大贏家', '蘋果AI'], baseLevel: '高', aiScore: 95, aiReason: '三大題材於一身的吸金黑洞。', metrics: { pe: '19.1倍', eps: '13.9元', yoy: '+19.5%', yield: '3.5%' }, buyAdvice: '260.0 - 265.0', targetAdvice: '300.0', stopLoss: '250.0', fundamentals: `輝達伺服器最大組裝廠，加上蘋果AI換機潮雙引擎。`, technical: `【量滾量強勢過高】日均量十萬張以上。`, chips: '【內外資認錯】外資認錯追價，換手極強。' },
+            { id: '3324', categoryId: 'hot', name: '雙鴻', price: 1035.0, trend: -0.5, basePrice: 1040.0, type: '上櫃', tags: ['水冷散熱', '千金股'], baseLevel: '高', aiScore: 91, aiReason: '高毛利水冷散熱指標。', metrics: { pe: '29.4倍', eps: '15.5元', yoy: '+42.1%', yield: '1.2%' }, buyAdvice: '1,020 - 1,050', targetAdvice: '1,200', stopLoss: '980', fundamentals: `AI伺服器解熱方案轉向水冷，毛利跳增。`, technical: `【高檔強勢】千金股走勢慓悍。`, chips: '【大戶鎖碼】籌碼由外資與大戶鎖定。' },
+            { id: '2303', categoryId: 'ai', name: '聯電', price: 148.0, trend: 3.13, basePrice: 143.5, type: '上市', tags: ['成熟製程', '邊緣AI'], baseLevel: '中低', aiScore: 94, aiReason: '被低估的晶圓代工。', metrics: { pe: '12.4倍', eps: '3.9元', yoy: '+8.2%', yield: '5.4%' }, buyAdvice: '143.0 - 146.0', targetAdvice: '165.0', stopLoss: '140.0', fundamentals: `邊緣AI爆發，成熟製程產能暴增。`, technical: `【強勢跳空】帶量突破大底頸線。`, chips: '【外資狂掃】外資近三個月瘋狂買超。' },
+            { id: '3231', categoryId: 'ai', name: '緯創', price: 146.5, trend: 1.05, basePrice: 145.0, type: '上市', tags: ['AI組裝', '輝達新單'], baseLevel: '中', aiScore: 89, aiReason: '實質AI營收保護下檔。', metrics: { pe: '15.4倍', eps: '9.4元', yoy: '+31.5%', yield: '3.8%' }, buyAdvice: '143.0 - 146.0', targetAdvice: '175.0', stopLoss: '138.0', fundamentals: `輝達新訂單挹注，獲利創歷史同期新高。`, technical: `【頭肩底突破】右肩完成並帶量突破。`, chips: '【官股聯手】八大官股與投信狂撿。' },
+            { id: '2353', categoryId: 'ai', name: '宏碁', price: 32.65, trend: 2.51, basePrice: 31.85, type: '上市', tags: ['AI PC', 'Computex'], baseLevel: '低', aiScore: 91, aiReason: 'Computex展前押寶首選。', metrics: { pe: '24.8倍', eps: '1.3元', yoy: '+14.2%', yield: '3.9%' }, buyAdvice: '31.5 - 32.5', targetAdvice: '40.0', stopLoss: '30.0', fundamentals: `迎來AIPC換機潮，高階商用機出貨大增。`, technical: `【布林通道發散】季線整理後帶出長紅。`, chips: '【土洋合作】外資與投信同步站買方。' },
+            { id: '1504', categoryId: 'green', name: '東元', price: 72.8, trend: 0.8, basePrice: 72.2, type: '上市', tags: ['電網強韌', '缺電概念'], baseLevel: '低', aiScore: 88, aiReason: '政策剛需保護。', metrics: { pe: '30.4倍', eps: '2.3元', yoy: '+16.8%', yield: '2.7%' }, buyAdvice: '70.0 - 72.0', targetAdvice: '85.0', stopLoss: '68.0', fundamentals: `拿下台電強韌電網大單，北美業務大幅成長。`, technical: `【杯柄突破】高檔強勢量縮震盪。`, chips: '【外資進駐】長線外資進駐，鎖定度高。' },
+            { id: '1513', categoryId: 'green', name: '中興電', price: 170.0, trend: 2.1, basePrice: 166.5, type: '上市', tags: ['GIS開關', '充電樁'], baseLevel: '中', aiScore: 90, aiReason: '重電族群純度最高。', metrics: { pe: '20.6倍', eps: '8.2元', yoy: '+28.5%', yield: '3.5%' }, buyAdvice: '168.0 - 170.0', targetAdvice: '200.0', stopLoss: '160.0', fundamentals: `訂單滿載看到2029年。`, technical: `【多頭排列】均線完美多頭。`, chips: '【投信作帳】投信連續買超不中斷。' },
+            { id: '3481', categoryId: 'turnaround', name: '群創', price: 49.55, trend: -1.29, basePrice: 50.2, type: '上市', tags: ['FOPLP', '面板轉型'], baseLevel: '高', aiScore: 95, aiReason: '轉機爆發力全台股最強。', metrics: { pe: '轉正', eps: '0.41元', yoy: '+22.4%', yield: 'N/A' }, buyAdvice: '48.0 - 49.5', targetAdvice: '60.0', stopLoss: '45.0', fundamentals: `跨足面板級封裝，搭上台積電產能外溢順風車。`, technical: `【天量換手】爆出歷史級成交量。`, chips: '【主力洗盤】高檔震盪清洗浮額。' },
+            { id: '2615', categoryId: 'turnaround', name: '萬海', price: 81.9, trend: 4.3, basePrice: 78.5, type: '上市', tags: ['紅海危機', '運價飆漲'], baseLevel: '中低', aiScore: 85, aiReason: '短線資金避風港。', metrics: { pe: '7.5倍', eps: '10.8元', yoy: '+85.6%', yield: '6.5%' }, buyAdvice: '80.0 - 81.5', targetAdvice: '100.0', stopLoss: '74.0', fundamentals: `歐美線運價狂飆，獲利彈性大。`, technical: `【底部爆量】底部爆量長紅貫穿均線。`, chips: '【當沖湧入】成交量大，適合積極操作。' },
+            { id: '0050', categoryId: 'etf', name: '元大台灣50', price: 103.50, trend: 1.1, basePrice: 102.3, type: '上市', tags: ['大盤連動', '市值型'], baseLevel: '中高', aiScore: 96, aiReason: '資產配置核心底座。', metrics: { pe: '追蹤大盤', eps: 'N/A', yoy: 'N/A', yield: '3.2%' }, buyAdvice: '102.5 - 103.5', targetAdvice: '110.0', stopLoss: '98.0', fundamentals: `台積電佔比高，穩健選擇。`, technical: `【沿均線上攻】標準多頭排列。`, chips: '【外資重倉】壽險與官股持續建立長線部位。' },
+            { id: '00878', categoryId: 'etf', name: '國泰永續高股息', price: 30.58, trend: 0.5, basePrice: 30.4, type: '上市', tags: ['高股息', 'ESG抗跌'], baseLevel: '低', aiScore: 92, aiReason: '防禦型避風港。', metrics: { pe: '價值選股', eps: 'N/A', yoy: 'N/A', yield: '6.8%' }, buyAdvice: '30.2 - 30.5', targetAdvice: '34.0', stopLoss: '28.5', fundamentals: `成分股穩健，具備極強抗跌屬性。`, technical: `【箱型突破】準備展開填息行情。`, chips: '【螞蟻搬象】散戶買盤源源不絕。' },
+            { id: '00929', categoryId: 'etf', name: '復華台灣科技優息', price: 30.31, trend: 0.7, basePrice: 30.1, type: '上市', tags: ['月月配', '科技股'], baseLevel: '中低', aiScore: 93, aiReason: '每月穩定現金流。', metrics: { pe: '科技選股', eps: 'N/A', yoy: 'N/A', yield: '7.5%' }, buyAdvice: '30.0 - 30.2', targetAdvice: '35.0', stopLoss: '28.0', fundamentals: `月月配純科技ETF，配息穩定。`, technical: `【MACD金叉】量縮整理後突破關卡。`, chips: '【高淨值鎖碼】高資產客戶只買不賣。' }
+        ];
+
+        let currentTab = 'all', selectedStockId = null, lastFlashedStockId = null;
+
+        function renderTabs() {
+            const container = document.getElementById('tabs-container');
+            container.innerHTML = '';
+            categories.forEach(cat => {
+                const btn = document.createElement('button');
+                btn.className = `flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold transition-all whitespace-nowrap ${currentTab === cat.id ? 'bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)] border border-blue-500' : 'bg-gray-900 text-gray-400 border border-gray-800 hover:bg-gray-800 hover:text-gray-200'}`;
+                btn.onclick = () => { currentTab = cat.id; selectedStockId = null; renderTabs(); renderStockList(); renderStockDetails(); };
+                btn.innerHTML = `<i class="${cat.icon} text-lg"></i> ${cat.name}`;
+                container.appendChild(btn);
+            });
+            document.getElementById('list-title').textContent = `${categories.find(c => c.id === currentTab).name}名單`;
+        }
+
+        function formatPrice(num) { return Number(num).toFixed(2); }
+        function formatTrend(percent) { return percent > 0 ? `+${percent.toFixed(2)}%` : percent < 0 ? `${percent.toFixed(2)}%` : `0.00%`; }
+
+        function renderStockList() {
+            const container = document.getElementById('stock-list');
+            container.innerHTML = '';
+            (currentTab === 'all' ? stocks : stocks.filter(s => s.categoryId === currentTab)).forEach(stock => {
+                const trendColor = stock.trend > 0 ? 'text-red-400' : stock.trend < 0 ? 'text-green-400' : 'text-gray-400';
+                const flashClass = lastFlashedStockId === stock.id ? (stock.trend >= (stock.lastTrend || stock.trend) ? 'flash-up' : 'flash-down') : '';
+                
+                const div = document.createElement('div');
+                div.className = `p-4 rounded-xl cursor-pointer transition-all duration-200 border ${selectedStockId === stock.id ? 'bg-gray-800 border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.2)]' : 'bg-gray-900 border-gray-800 hover:border-gray-600 hover:bg-gray-800/50'}`;
+                div.onclick = () => { selectedStockId = stock.id; renderStockList(); renderStockDetails(); };
+                div.innerHTML = `<div class="flex justify-between items-start mb-2"><div><div class="font-bold text-lg text-gray-100 flex items-center gap-2">${stock.name} <span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 border border-gray-700">${stock.type}</span></div><div class="text-sm font-mono text-gray-400">${stock.id}</div></div><div class="text-right"><div class="font-bold text-xl ${trendColor} ${flashClass}">${formatPrice(stock.price)}</div><div class="text-xs ${trendColor}">${formatTrend(stock.trend)}</div></div></div><div class="flex gap-2 mt-3 flex-wrap">${stock.tags.map(tag => `<span class="text-xs px-2 py-1 bg-blue-900/40 text-blue-300 rounded-md border border-blue-800/60">${tag}</span>`).join('')}</div>`;
+                container.appendChild(div);
+            });
+        }
+
+        function renderStockDetails() {
+            const container = document.getElementById('stock-detail');
+            if (!selectedStockId) {
+                container.innerHTML = `<div class="flex flex-col items-center justify-center text-gray-500 p-8 text-center h-full min-h-[500px]"><i class="ph-duotone ph-chart-polar text-6xl mb-4 opacity-50"></i><h3 class="text-xl font-bold mb-2 text-gray-300">請選擇左側股票以查看專屬交易策略</h3><p class="text-sm max-w-md text-gray-400">系統一切就緒。<br/>點擊左側可啟動右側戰情分析。</p></div>`;
+                return;
+            }
+            const stock = stocks.find(s => s.id === selectedStockId);
+            const trendColor = stock.trend > 0 ? 'text-red-400' : stock.trend < 0 ? 'text-green-400' : 'text-gray-400';
+            const flashClass = lastFlashedStockId === stock.id ? (stock.trend >= (stock.lastTrend || stock.trend) ? 'flash-up' : 'flash-down') : '';
+            
+            container.innerHTML = `<div class="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div><div class="p-5 md:p-8 flex-grow flex flex-col h-full relative z-10 overflow-y-auto"><div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 border-b border-gray-800 pb-4 gap-4"><div><h2 class="text-2xl md:text-3xl font-bold flex items-center gap-3 text-white">${stock.name}<span class="text-xs font-normal px-3 py-1 bg-gray-800 rounded-full text-gray-300 border border-gray-700 whitespace-nowrap">位階: <span class="text-yellow-400 font-bold">${stock.baseLevel}</span></span></h2><div class="mt-3 flex items-center gap-2"><div class="flex items-center gap-1 bg-gradient-to-r from-blue-900 to-indigo-900 px-3 py-1.5 rounded-lg border border-indigo-500/50 shrink-0"><i class="ph-fill ph-robot text-indigo-300"></i><span class="text-xs font-bold text-indigo-200">AI評分:</span><span class="text-sm font-extrabold text-white">${stock.aiScore}%</span></div><div class="text-[13px] text-gray-400 border-l border-gray-700 pl-3 leading-tight hidden md:block">${stock.aiReason}</div></div></div><div class="text-right w-full md:w-auto"><div class="text-4xl font-mono font-bold ${trendColor} transition-colors text-right ${flashClass}">${formatPrice(stock.price)}</div><div class="text-sm font-mono mt-1 ${trendColor} text-right">${formatTrend(stock.trend)}</div></div></div><div class="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 mb-6 shrink-0"><div class="bg-blue-950/40 border border-blue-900/60 rounded-xl p-4 flex flex-col"><div class="text-blue-400 text-xs font-bold mb-1.5 flex items-center gap-1.5"><i class="ph-bold ph-wallet"></i> 建議進場區間</div><div class="text-gray-100 font-bold text-sm">${stock.buyAdvice}</div></div><div class="bg-red-950/40 border border-red-900/60 rounded-xl p-4 flex flex-col"><div class="text-red-400 text-xs font-bold mb-1.5 flex items-center gap-1.5"><i class="ph-bold ph-target"></i> 目標獲利價</div><div class="text-red-300 font-bold text-sm">${stock.targetAdvice}</div></div><div class="bg-green-950/40 border border-green-900/60 rounded-xl p-4 flex flex-col"><div class="text-green-400 text-xs font-bold mb-1.5 flex items-center gap-1.5"><i class="ph-bold ph-warning-circle"></i> 嚴格防守停損</div><div class="text-green-300 font-bold text-sm">${stock.stopLoss}</div></div></div><div class="space-y-4"><div class="bg-gray-800/40 p-5 rounded-xl border border-gray-700/50"><h3 class="text-base font-bold text-blue-400 flex items-center gap-2 mb-4"><i class="ph-fill ph-database text-lg"></i> 業績與未來性</h3><div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4"><div class="bg-gray-900/80 p-3 rounded-lg border border-gray-700 flex flex-col justify-center items-center text-center shadow-inner"><div class="text-[11px] text-gray-400 mb-1">本益比(P/E)</div><div class="text-sm font-bold text-gray-200">${stock.metrics.pe}</div></div><div class="bg-gray-900/80 p-3 rounded-lg border border-gray-700 flex flex-col justify-center items-center text-center shadow-inner"><div class="text-[11px] text-gray-400 mb-1">財報 EPS</div><div class="text-sm font-bold text-gray-200">${stock.metrics.eps}</div></div><div class="bg-gray-900/80 p-3 rounded-lg border border-gray-700 flex flex-col justify-center items-center text-center shadow-inner"><div class="text-[11px] text-gray-400 mb-1">營收(YoY)</div><div class="text-sm font-bold text-red-400">${stock.metrics.yoy}</div></div><div class="bg-gray-900/80 p-3 rounded-lg border border-gray-700 flex flex-col justify-center items-center text-center shadow-inner"><div class="text-[11px] text-gray-400 mb-1">預估殖利率</div><div class="text-sm font-bold text-yellow-500">${stock.metrics.yield}</div></div></div><p class="text-gray-300 leading-relaxed text-sm pt-3 border-t border-gray-700/50">${stock.fundamentals}</p></div><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div class="bg-gray-800/40 p-5 rounded-xl border border-gray-700/50 h-full"><h3 class="text-base font-bold text-purple-400 flex items-center gap-2 mb-3"><i class="ph-fill ph-chart-line text-lg"></i> 技術線型</h3><p class="text-gray-300 leading-relaxed text-sm">${stock.technical}</p></div><div class="bg-gray-800/40 p-5 rounded-xl border border-gray-700/50 h-full"><h3 class="text-base font-bold text-amber-400 flex items-center gap-2 mb-3"><i class="ph-fill ph-shield-check text-lg"></i> 籌碼面</h3><p class="text-gray-300 leading-relaxed text-sm">${stock.chips}</p></div></div></div></div>`;
+        }
+
+        renderTabs(); renderStockList(); renderStockDetails();
+
+        const today = new Date();
+        document.getElementById('time-display').textContent = `回測基準：2026/02/28 至 ${today.getFullYear()}/${String(today.getMonth()+1).padStart(2,'0')}/${String(today.getDate()).padStart(2,'0')}`;
+
         async function fetchRealData() {
             const btn = document.getElementById('update-btn'), icon = document.getElementById('update-icon');
             const statusDot = document.getElementById('status-dot'), statusText = document.getElementById('status-text');
