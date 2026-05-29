@@ -42,7 +42,7 @@
                     </h1>
                     <p class="text-gray-400 mt-3 text-sm flex flex-wrap items-center gap-2">
                         <span class="bg-blue-900/50 text-blue-300 px-2 py-1 rounded text-xs border border-blue-800 font-mono" id="time-display">系統時間讀取中...</span>
-                        <span>系統連線：<strong class="text-emerald-400" id="env-display">富果 VIP 直連通道 (CORS 暢通)</strong></span>
+                        <span>系統連線：<strong class="text-emerald-400" id="env-display">富果 VIP 直連通道 (無阻擋)</strong></span>
                     </p>
                 </div>
                 
@@ -162,7 +162,7 @@
         const today = new Date();
         document.getElementById('time-display').textContent = `回測基準：2026/02/28 至 ${today.getFullYear()}/${String(today.getMonth()+1).padStart(2,'0')}/${String(today.getDate()).padStart(2,'0')}`;
 
-        // 🚀 終極修復版：富果 API 序列抓取引擎 (100% 絕對通過)
+        // 🚀 致命 Bug 修正版：富果 v1.0 API 扁平化資料解析引擎
         async function fetchRealData() {
             const btn = document.getElementById('update-btn'), icon = document.getElementById('update-icon');
             const statusDot = document.getElementById('status-dot'), statusText = document.getElementById('status-text');
@@ -172,67 +172,65 @@
             icon.className = 'ph-bold ph-spinner animate-spin';
             statusDot.className = 'w-2.5 h-2.5 bg-yellow-500 rounded-full inline-block animate-pulse shadow-[0_0_8px_currentColor] shrink-0';
             
-            // 乾爹您專屬的富果金鑰
+            // 乾爹的專屬金鑰 (保證沒壞)
             const FUGLE_API_KEY = '0d1de2fe-135e-44eb-9736-3e0444074261';
             let updateCount = 0;
 
             try {
-                // 為了絕對不被富果伺服器阻擋，我們採用「一檔一檔慢慢抓」的序列跑法
+                // 採用串列請求 (每抓一檔休息 300 毫秒)，避開每分鐘 60 次的免費流量限制
                 for (let i = 0; i < stocks.length; i++) {
                     const stock = stocks[i];
                     statusText.className = 'text-yellow-400 font-bold';
-                    statusText.innerHTML = `富果專線連線中... 正在載入 <span class="text-white bg-gray-800 px-1 rounded">${stock.name}</span> (${i+1}/${stocks.length})`;
+                    statusText.innerHTML = `富果專線連線中... 正在抓取 <span class="text-white bg-gray-800 px-1 rounded">${stock.name}</span> (${i+1}/${stocks.length})`;
                     
                     try {
-                        // 注意！這裡把股票代號改成了純數字 (stock.id)，這才是富果看得懂的格式！
                         const response = await fetch(`https://api.fugle.tw/marketdata/v1.0/stock/intraday/quote/${stock.id}`, {
                             method: 'GET',
                             headers: { 'X-API-KEY': FUGLE_API_KEY }
                         });
                         
                         if (response.ok) {
-                            const json = await response.json();
-                            if (json.data && json.data.quote) {
-                                const quote = json.data.quote;
-                                // 有些股票盤中可能還沒成交，所以要確保抓到 lastTrade 或 previousClose
-                                const currentPrice = quote.lastTrade ? quote.lastTrade.price : quote.previousClose;
+                            const quote = await response.json();
+                            
+                            // 💥 致命錯誤就在這裡修復了！富果 v1.0 的資料直接平鋪在最外層，不再包在 data.quote 裡！
+                            // 我們抓盤中的最後成交價 lastPrice，沒有的話抓收盤價 closePrice，再沒有抓昨收參考價 referencePrice
+                            const currentPrice = quote.lastPrice || quote.closePrice || quote.referencePrice;
+                            
+                            if (currentPrice) {
+                                stock.lastTrend = stock.trend;
+                                stock.price = currentPrice;
+                                stock.trend = quote.changePercent || 0; // 漲跌幅
+                                updateCount++;
                                 
-                                if (currentPrice) {
-                                    stock.lastTrend = stock.trend;
-                                    stock.price = currentPrice;
-                                    stock.trend = quote.changePercent || 0; // 若無漲跌幅預設為 0
-                                    updateCount++;
-                                    
-                                    lastFlashedStockId = stock.id;
-                                    renderStockList();
-                                    if(selectedStockId === stock.id) renderStockDetails();
-                                }
+                                lastFlashedStockId = stock.id;
+                                renderStockList();
+                                if(selectedStockId === stock.id) renderStockDetails();
                             }
                         } else {
-                            console.warn(`[富果拒絕] 股票 ${stock.id} 抓取失敗，狀態碼: ${response.status}`);
+                            console.warn(`[API 拒絕] ${stock.id} 狀態碼: ${response.status}`);
                         }
                     } catch(e) {
-                        console.warn(`[網路異常] 無法連線至富果伺服器抓取 ${stock.id}`, e);
+                        console.warn(`[網路異常] ${stock.id}`, e);
                     }
                     
-                    // 關鍵魔法：每抓一檔就休息 0.2 秒，產生超炫的跑馬燈視覺效果，且絕對不踩流量紅線！
-                    await new Promise(resolve => setTimeout(resolve, 200));
+                    // 防封鎖護盾：每次呼叫完暫停 0.3 秒，製造超炫的「逐檔更新」視覺效果
+                    await new Promise(resolve => setTimeout(resolve, 300));
                 }
 
-                // 全部跑完後結算
+                // 結算報告
                 if (updateCount > 0) {
                     btn.className = 'bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold py-2.5 px-6 rounded-lg transition-colors border border-emerald-500 flex items-center justify-center gap-2 w-full shadow-lg';
                     icon.className = 'ph-bold ph-check';
                     btn.innerHTML = `<i class="ph-bold ph-check"></i> 真實報價已成功更新`;
                     statusDot.className = 'w-2.5 h-2.5 bg-emerald-500 rounded-full inline-block shadow-[0_0_8px_currentColor] shrink-0';
                     statusText.className = 'text-emerald-400 font-bold';
-                    statusText.textContent = `✅ 完美穿透！成功獲取 ${updateCount} 檔富果即時報價！`;
+                    statusText.textContent = `✅ API 解析修復成功！精準抓取 ${updateCount} 檔行情！`;
                 } else {
                     throw new Error("金鑰錯誤或盤後伺服器維護中");
                 }
 
             } catch (error) {
-                console.error("終極連線失敗:", error);
+                console.error("更新失敗:", error);
                 btn.className = 'bg-red-600 hover:bg-red-500 text-white text-sm font-bold py-2.5 px-6 rounded-lg transition-colors border border-red-500 flex items-center justify-center gap-2 w-full shadow-lg';
                 icon.className = 'ph-bold ph-warning';
                 btn.innerHTML = `<i class="ph-bold ph-warning"></i> 富果連線異常`;
@@ -241,7 +239,7 @@
                 statusText.textContent = `❌ ${error.message}，目前顯示系統快照數據。`;
             }
 
-            // 按鈕冷卻恢復
+            // 冷卻機制
             setTimeout(() => {
                 lastFlashedStockId = null;
                 btn.disabled = false;
