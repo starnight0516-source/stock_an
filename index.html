@@ -181,66 +181,85 @@
             icon.className = 'ph-bold ph-spinner animate-spin';
             statusDot.className = 'w-2.5 h-2.5 bg-yellow-500 rounded-full inline-block animate-pulse shadow-[0_0_8px_currentColor] shrink-0';
             statusText.className = 'text-yellow-400 font-bold';
-            statusText.textContent = '終極代理通道連線中...';
+            
+            // 雅虎財經 API 網址 (13檔股票打包)
+            const symbols = '2330.TW,2317.TW,3324.TWO,2303.TW,3231.TW,2353.TW,1504.TW,1513.TW,3481.TW,2615.TW,0050.TW,00878.TW,00929.TW';
+            const yahooUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols}`;
+            
+            // 狡兔三窟：準備三個不同的公共跳板 (防封鎖陣列)
+            const proxies = [
+                `https://api.codetabs.com/v1/proxy?quest=${yahooUrl}`,
+                `https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}`,
+                `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`
+            ];
 
-            try {
-                // 1. 把 13 檔股票包成一包 (Batch Request)，避免被當成攻擊
-                const symbols = '2330.TW,2317.TW,3324.TWO,2303.TW,3231.TW,2353.TW,1504.TW,1513.TW,3481.TW,2615.TW,0050.TW,00878.TW,00929.TW';
-                const yahooUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols}`;
-                
-                // 2. 透過 allorigins 合法代理伺服器，繞過雅虎對 GitHub 的封鎖
-                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(yahooUrl)}`;
+            let success = false;
+            let finalData = null;
 
-                const res = await fetch(proxyUrl, { cache: 'no-cache' });
-                if (!res.ok) throw new Error('Proxy Server Error');
-                
-                const proxyData = await res.json();
-                if (!proxyData.contents) throw new Error('Empty Data');
-
-                // 解析代理伺服器傳回來的雅虎原生 JSON 資料
-                const data = JSON.parse(proxyData.contents);
-
-                if (data.quoteResponse && data.quoteResponse.result) {
-                    const results = data.quoteResponse.result;
-                    const symbolMap = { '2330':'2330.TW', '2317':'2317.TW', '3324':'3324.TWO', '2303':'2303.TW', '3231':'3231.TW', '2353':'2353.TW', '1504':'1504.TW', '1513':'1513.TW', '3481':'3481.TW', '2615':'2615.TW', '0050':'0050.TW', '00878':'00878.TW', '00929':'00929.TW' };
+            // 啟動自動跳板切換機制
+            for (let i = 0; i < proxies.length; i++) {
+                try {
+                    statusText.textContent = `嘗試代理通道 ${i + 1}/3 ...`;
+                    console.log(`Trying proxy ${i + 1}...`);
                     
-                    let updateCount = 0;
-                    stocks.forEach(stock => {
-                        const yahooId = symbolMap[stock.id];
-                        const quote = results.find(r => r.symbol === yahooId);
-                        if (quote && quote.regularMarketPrice) {
-                            stock.lastTrend = stock.trend;
-                            stock.price = quote.regularMarketPrice;
-                            stock.trend = quote.regularMarketChangePercent;
-                            updateCount++;
-                            lastFlashedStockId = stock.id;
-                        }
-                    });
+                    // 設定 6 秒超時，不行就換下一個跳板
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 6000);
+                    
+                    const res = await fetch(proxies[i], { signal: controller.signal });
+                    clearTimeout(timeoutId);
 
-                    if(updateCount === 0) throw new Error('No Data Matched');
-
-                    renderStockList();
-                    if(selectedStockId) renderStockDetails();
-                    setTimeout(() => { lastFlashedStockId = null; }, 1000);
-
-                    btn.className = 'bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold py-2.5 px-6 rounded-lg transition-colors border border-emerald-500 flex items-center justify-center gap-2 w-full shadow-lg';
-                    icon.className = 'ph-bold ph-check';
-                    btn.innerHTML = `<i class="ph-bold ph-check"></i> 盤中報價更新成功`;
-                    statusDot.className = 'w-2.5 h-2.5 bg-emerald-500 rounded-full inline-block shadow-[0_0_8px_currentColor] shrink-0';
-                    statusText.className = 'text-emerald-400 font-bold';
-                    statusText.textContent = `✅ 成功獲取 ${updateCount} 檔盤中行情！最後同步：${new Date().toLocaleTimeString()}`;
-                } else {
-                    throw new Error('Parse Failed');
+                    if (!res.ok) continue; // 如果這個跳板壞了，繼續迴圈換下一個
+                    
+                    const data = await res.json();
+                    
+                    if (data && data.quoteResponse && data.quoteResponse.result) {
+                        finalData = data.quoteResponse.result;
+                        success = true;
+                        break; // 成功拿到資料！跳出迴圈
+                    }
+                } catch (error) {
+                    console.warn(`代理通道 ${i + 1} 失敗，自動切換中...`);
+                    // 繼續嘗試下一個
                 }
-            } catch (error) {
-                console.error("連線錯誤:", error);
+            }
+
+            if (success && finalData) {
+                const symbolMap = { '2330':'2330.TW', '2317':'2317.TW', '3324':'3324.TWO', '2303':'2303.TW', '3231':'3231.TW', '2353':'2353.TW', '1504':'1504.TW', '1513':'1513.TW', '3481':'3481.TW', '2615':'2615.TW', '0050':'0050.TW', '00878':'00878.TW', '00929':'00929.TW' };
+                
+                let updateCount = 0;
+                stocks.forEach(stock => {
+                    const yahooId = symbolMap[stock.id];
+                    const quote = finalData.find(r => r.symbol === yahooId);
+                    if (quote && quote.regularMarketPrice) {
+                        stock.lastTrend = stock.trend;
+                        stock.price = quote.regularMarketPrice;
+                        stock.trend = quote.regularMarketChangePercent;
+                        updateCount++;
+                        lastFlashedStockId = stock.id;
+                    }
+                });
+
+                renderStockList();
+                if(selectedStockId) renderStockDetails();
+                setTimeout(() => { lastFlashedStockId = null; }, 1000);
+
+                btn.className = 'bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold py-2.5 px-6 rounded-lg transition-colors border border-emerald-500 flex items-center justify-center gap-2 w-full shadow-lg';
+                icon.className = 'ph-bold ph-check';
+                btn.innerHTML = `<i class="ph-bold ph-check"></i> 盤中報價更新成功`;
+                statusDot.className = 'w-2.5 h-2.5 bg-emerald-500 rounded-full inline-block shadow-[0_0_8px_currentColor] shrink-0';
+                statusText.className = 'text-emerald-400 font-bold';
+                statusText.textContent = `✅ 成功獲取 ${updateCount} 檔盤中行情！最後同步：${new Date().toLocaleTimeString()}`;
+            } else {
+                // 如果三個跳板全部陣亡
                 btn.className = 'bg-red-600 hover:bg-red-500 text-white text-sm font-bold py-2.5 px-6 rounded-lg transition-colors border border-red-500 flex items-center justify-center gap-2 w-full shadow-lg';
                 icon.className = 'ph-bold ph-warning';
-                btn.innerHTML = `<i class="ph-bold ph-warning"></i> 網路連線異常`;
+                btn.innerHTML = `<i class="ph-bold ph-warning"></i> 代理伺服器全數陣亡`;
                 statusDot.className = 'w-2.5 h-2.5 bg-red-500 rounded-full inline-block shadow-[0_0_8px_currentColor] shrink-0';
                 statusText.className = 'text-red-400 font-bold';
-                statusText.textContent = '❌ 公共代理伺服器繁忙，請稍後再試。';
+                statusText.textContent = '❌ 全球防護網過高，目前暫時顯示系統快照數據。';
             }
+
             setTimeout(() => {
                 btn.disabled = false;
                 btn.className = 'bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-2.5 px-6 rounded-lg transition-colors border border-blue-500 flex items-center justify-center gap-2 w-full shadow-lg';
