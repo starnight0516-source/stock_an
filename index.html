@@ -208,13 +208,16 @@
                             }
                         } else {
                             console.warn(`[API 拒絕] ${stock.id} 狀態碼: ${response.status}`);
+                            // 若狀態碼不是 200，印出回傳內容看看，說不定富果有寫為什麼
+                            const errorText = await response.text();
+                            console.warn(`[API 拒絕內容] ${errorText}`);
                         }
                     } catch(e) {
                         console.warn(`[網路異常] ${stock.id}`, e);
                     }
                     
-                    // 防封鎖護盾：每次呼叫完暫停 0.3 秒，製造超炫的「逐檔更新」視覺效果
-                    await new Promise(resolve => setTimeout(resolve, 300));
+                    // 防封鎖護盾：每次呼叫完暫停 1 秒，因為免費版金鑰可能限制更嚴格
+                    await new Promise(resolve => setTimeout(resolve, 1000));
                 }
 
                 // 結算報告
