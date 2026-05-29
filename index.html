@@ -49,7 +49,7 @@
                 <!-- 官方 Open API 連線按鈕 -->
                 <div class="w-full lg:w-auto bg-gray-900/80 p-4 rounded-xl border border-gray-700 flex flex-col justify-end shadow-inner min-w-[320px]">
                     <div class="text-sm font-bold text-blue-400 mb-3 flex items-center gap-2">
-                        <i class="ph-fill ph-globe-hemisphere-east"></i> 雅虎財經 V8 直連通道 (GitHub 限定)
+                        <i class="ph-fill ph-globe-hemisphere-east"></i> 全球代理直連通道 (突破封鎖版)
                     </div>
                     <button onclick="fetchRealData()" id="update-btn" class="bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-2.5 px-6 rounded-lg transition-colors border border-blue-500 flex items-center justify-center gap-2 w-full shadow-lg">
                         <i class="ph-bold ph-arrows-clockwise" id="update-icon"></i> 獲取盤中即時真實報價
@@ -181,70 +181,65 @@
             icon.className = 'ph-bold ph-spinner animate-spin';
             statusDot.className = 'w-2.5 h-2.5 bg-yellow-500 rounded-full inline-block animate-pulse shadow-[0_0_8px_currentColor] shrink-0';
             statusText.className = 'text-yellow-400 font-bold';
-            statusText.textContent = '雅虎 V8 通道連線中...';
+            statusText.textContent = '終極代理通道連線中...';
 
             try {
-                // GitHub Pages 環境下，直連雅虎財經 V8 Chart API (天生允許 CORS)
-                const symbolMap = {
-                    '2330':'2330.TW', '2317':'2317.TW', '3324':'3324.TWO',
-                    '2303':'2303.TW', '3231':'3231.TW', '2353':'2353.TW',
-                    '1504':'1504.TW', '1513':'1513.TW', '3481':'3481.TW',
-                    '2615':'2615.TW', '0050':'0050.TW', '00878':'00878.TW',
-                    '00929':'00929.TW'
-                };
-
-                let updateCount = 0;
+                // 1. 把 13 檔股票包成一包 (Batch Request)，避免被當成攻擊
+                const symbols = '2330.TW,2317.TW,3324.TWO,2303.TW,3231.TW,2353.TW,1504.TW,1513.TW,3481.TW,2615.TW,0050.TW,00878.TW,00929.TW';
+                const yahooUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols}`;
                 
-                // 併發請求 13 檔股票資料
-                const promises = stocks.map(async (stock) => {
-                    const querySymbol = symbolMap[stock.id];
-                    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${querySymbol}?interval=1d&range=1d`;
+                // 2. 透過 allorigins 合法代理伺服器，繞過雅虎對 GitHub 的封鎖
+                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(yahooUrl)}`;
+
+                const res = await fetch(proxyUrl, { cache: 'no-cache' });
+                if (!res.ok) throw new Error('Proxy Server Error');
+                
+                const proxyData = await res.json();
+                if (!proxyData.contents) throw new Error('Empty Data');
+
+                // 解析代理伺服器傳回來的雅虎原生 JSON 資料
+                const data = JSON.parse(proxyData.contents);
+
+                if (data.quoteResponse && data.quoteResponse.result) {
+                    const results = data.quoteResponse.result;
+                    const symbolMap = { '2330':'2330.TW', '2317':'2317.TW', '3324':'3324.TWO', '2303':'2303.TW', '3231':'3231.TW', '2353':'2353.TW', '1504':'1504.TW', '1513':'1513.TW', '3481':'3481.TW', '2615':'2615.TW', '0050':'0050.TW', '00878':'00878.TW', '00929':'00929.TW' };
                     
-                    try {
-                        const res = await fetch(url, { cache: 'no-cache' });
-                        if (!res.ok) return;
-                        const data = await res.json();
-                        
-                        if (data.chart && data.chart.result && data.chart.result.length > 0) {
-                            const meta = data.chart.result[0].meta;
-                            const currentPrice = meta.regularMarketPrice;
-                            const prevClose = meta.previousClose;
-                            
-                            if (currentPrice && prevClose) {
-                                stock.lastTrend = stock.trend;
-                                stock.price = currentPrice;
-                                stock.trend = ((currentPrice - prevClose) / prevClose) * 100;
-                                updateCount++;
-                                lastFlashedStockId = stock.id;
-                            }
+                    let updateCount = 0;
+                    stocks.forEach(stock => {
+                        const yahooId = symbolMap[stock.id];
+                        const quote = results.find(r => r.symbol === yahooId);
+                        if (quote && quote.regularMarketPrice) {
+                            stock.lastTrend = stock.trend;
+                            stock.price = quote.regularMarketPrice;
+                            stock.trend = quote.regularMarketChangePercent;
+                            updateCount++;
+                            lastFlashedStockId = stock.id;
                         }
-                    } catch(err) {
-                        console.error(`抓取失敗 ${querySymbol}:`, err);
-                    }
-                });
+                    });
 
-                await Promise.all(promises);
+                    if(updateCount === 0) throw new Error('No Data Matched');
 
-                if (updateCount === 0) throw new Error('YAHOO_API_BLOCKED');
+                    renderStockList();
+                    if(selectedStockId) renderStockDetails();
+                    setTimeout(() => { lastFlashedStockId = null; }, 1000);
 
-                renderStockList();
-                if(selectedStockId) renderStockDetails();
-                setTimeout(() => { lastFlashedStockId = null; }, 1000);
-
-                btn.className = 'bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold py-2.5 px-6 rounded-lg transition-colors border border-emerald-500 flex items-center justify-center gap-2 w-full shadow-lg';
-                icon.className = 'ph-bold ph-check';
-                btn.innerHTML = `<i class="ph-bold ph-check"></i> 盤中報價更新成功`;
-                statusDot.className = 'w-2.5 h-2.5 bg-emerald-500 rounded-full inline-block shadow-[0_0_8px_currentColor] shrink-0';
-                statusText.className = 'text-emerald-400 font-bold';
-                statusText.textContent = `✅ 成功獲取 ${updateCount} 檔盤中行情！最後同步：${new Date().toLocaleTimeString()}`;
+                    btn.className = 'bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold py-2.5 px-6 rounded-lg transition-colors border border-emerald-500 flex items-center justify-center gap-2 w-full shadow-lg';
+                    icon.className = 'ph-bold ph-check';
+                    btn.innerHTML = `<i class="ph-bold ph-check"></i> 盤中報價更新成功`;
+                    statusDot.className = 'w-2.5 h-2.5 bg-emerald-500 rounded-full inline-block shadow-[0_0_8px_currentColor] shrink-0';
+                    statusText.className = 'text-emerald-400 font-bold';
+                    statusText.textContent = `✅ 成功獲取 ${updateCount} 檔盤中行情！最後同步：${new Date().toLocaleTimeString()}`;
+                } else {
+                    throw new Error('Parse Failed');
+                }
             } catch (error) {
                 console.error("連線錯誤:", error);
                 btn.className = 'bg-red-600 hover:bg-red-500 text-white text-sm font-bold py-2.5 px-6 rounded-lg transition-colors border border-red-500 flex items-center justify-center gap-2 w-full shadow-lg';
                 icon.className = 'ph-bold ph-warning';
-                btn.innerHTML = `<i class="ph-bold ph-warning"></i> 雅虎連線異常`;
+                btn.innerHTML = `<i class="ph-bold ph-warning"></i> 網路連線異常`;
                 statusDot.className = 'w-2.5 h-2.5 bg-red-500 rounded-full inline-block shadow-[0_0_8px_currentColor] shrink-0';
                 statusText.className = 'text-red-400 font-bold';
-                statusText.textContent = '❌ 雅虎財經伺服器暫時阻擋，請稍後再試。';
+                statusText.textContent = '❌ 公共代理伺服器繁忙，請稍後再試。';
             }
             setTimeout(() => {
                 btn.disabled = false;
